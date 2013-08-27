@@ -1,0 +1,38 @@
+platform.js[48]:
+<----------------------------------------------------------------------
+platform.js[53]:
+[:node-create [] :map]
+platform.js[53]:
+[:node-create [:greeting] :map]
+platform.js[53]:
+[:value [:greeting] nil "Hello World!"]
+platform.js[63]:
+---------------------------------------------------------------------->
+platform.js[64]:
+
+console_log.js[5]:
+{:timestamp 1377607821204, :in :new-id!, :msg "creating new id G__1 at path [:greeting]", :level :info}
+console_log.js[5]:
+{:timestamp 1377607821206, :in :new-id!, :msg "creating new id G__2 at path [:greeting \"data\"]", :level :info}
+console_log.js[5]:
+{:timestamp 1377607821207, :in :new-id!, :msg "creating new id G__3 at path [:greeting \"control\"]", :level :info}
+platform.js[47]:
+
+platform.js[48]:
+<----------------------------------------------------------------------
+platform.js[53]:
+[:node-create [] :map]
+platform.js[53]:
+[:node-create [:my-counter] :map]
+platform.js[53]:
+[:value [:my-counter] nil 1]
+platform.js[63]:
+---------------------------------------------------------------------->
+platform.js[64]:
+
+console_log.js[5]:
+{:timestamp 1377618963593, :in :new-id!, :msg "creating new id G__1 at path [:my-counter]", :level :info}
+console_log.js[5]:
+{:timestamp 1377618963594, :in :new-id!, :msg "creating new id G__2 at path [:my-counter \"data\"]", :level :info}
+console_log.js[5]:
+{:timestamp 1377618963595, :in :new-id!, :msg "creating new id G__3 at path [:my-counter \"control\"]", :level :info}
