@@ -30,9 +30,9 @@ If allowed, the event source passes back an event containing the thread id, whic
 What you are expected to see should closely resemble the output as captured in these screenshots, regardless of environment, the response and general
 output messages should coincide.
 
-* [screenshot 1]()
-* [screenshot 2]()
-* [screenshot 3]()
+* [screenshot 1](https://github.com/clojens/app-tutorial/blob/refactor/media/new-samples/cors/resources/images/screen1.png?raw=true)
+* [screenshot 2](https://github.com/clojens/app-tutorial/blob/refactor/media/new-samples/cors/resources/images/screen2.png?raw=true)
+* [screenshot 3](https://github.com/clojens/app-tutorial/blob/refactor/media/new-samples/cors/resources/images/screen3.png?raw=true)
 
 As you may have noticed, instead of using the traditional method of the terminal and a good old `lein run` or `lein repl`, instead I did:
 
