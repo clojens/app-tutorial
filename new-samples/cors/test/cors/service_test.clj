@@ -1,24 +1,40 @@
 (ns cors.service-test
   (:require [clojure.test :refer :all]
+            [clojure.java.shell :refer [sh]]
             [io.pedestal.service.test :refer :all]
             [io.pedestal.service.http :as bootstrap]
-            [cors.service :as service]))
+            [cors.service :as service]
+            ;[io.pedestal.service-tools.server :as server]
+            [cors.server :refer [run-dev service-instance
+                                 create-server]]
+            ))
 
-(def service
-  (::bootstrap/service-fn (bootstrap/create-servlet service/service)))
+;; (def service
+;;   (::bootstrap/service-fn (bootstrap/create-servlet service/service)))
 
-(deftest home-page-test
-  (is (=
-       (:body (response-for service :get "/"))
-       "Hello World!"))
-  (is (=
-       (:headers (response-for service :get "/"))
-       {"Content-Type" "text/html;charset=UTF-8"})))
+;; (::bootstrap/stop-fn x)
 
-(deftest about-page-test
-  (is (.contains
-       (:body (response-for service :get "/about"))
-       "Clojure 1.5"))
-  (is (=
-       (:headers (response-for service :get "/about"))
-       {"Content-Type" "text/html;charset=UTF-8"})))
+;; (defn prepare-test []
+;;   (try
+;;     (spit "/root/resources/public/abc.txt" "pedestal-test")
+;;     (catch java.io.FileNotFoundException e (list e))))
+
+;; (first (prepare-test))
+
+;; (deftest test-dev-server
+;;   (testing "if the public folder")
+
+;; (test-dev-server)
+
+;; ;bootstrap/stop
+;; (defonce x (run-dev 8080))
+;; (:body (response-for service :get "/abc.txt"))
+;; (:body (response-for service :get "/js"))
+;; (:body (response-for service :get "/eventsource.js"))
+;; (:headers (response-for service :get "/eventsource.js"))
+
+;; ;(:body (response-for service :get "/js"))
+;; ; (server/create-server [::bootstrap/port (Long/valueOf 8081)])
+;; ;; (server/create-server [::bootstrap/port (Long/valueOf 8080)])
+;; ;(bootstrap/start service-instance)
+;; ;(about-page-test)
