@@ -1,10 +1,9 @@
 (ns template-server.grid
   "Demonstration using Garden to recreate the Semantic Grid framework.
-  Thanks to Joel Holbrook's (noprompt) for the work of writing this up.
-
-   SEE: https://github.com/noprompt/garden
-   SEE: http://semantic.gs/
-   SEE: https://github.com/twigkit/semantic.gs/blob/master/stylesheets/scss/grid.scss"
+  Thanks to Joel Holbrook (noprompt) for the work on writing this up.
+  * <https://github.com/noprompt/garden>
+  * <http://semantic.gs/>
+  * <https://github.com/twigkit/semantic.gs/blob/master/stylesheets/scss/grid.scss>"
 
   (:refer-clojure :exclude [+ - * /])
   (:require [garden.units :refer [px em percent]]
