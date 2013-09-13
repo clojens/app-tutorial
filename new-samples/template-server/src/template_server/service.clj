@@ -25,8 +25,6 @@
             [garden.core :as garden]
             [garden.def :refer [defrule]]
             [garden.units :as gu :refer [px em]]
-            [garden.color :as gc :refer [hsl]]
-            [garden.arithmetic :refer [+ - * /]]
             [comb.template :as comb]
             [clojure.string :as str]
             [hiccup.page :as page]
@@ -73,21 +71,20 @@
   (-> (ring-resp/response (garden/css (demo-style)))
       (ring-resp/content-type "text/css")))
 
+
 (defn semantic-grid
   "Demo page of the semantic grid system using garden.
-   Render the demo. Compare with the demo on the Semantic Grid
-   website.
-   <http://semantic.gs/examples/fixed/fixed.html>"
+  Compare with the demo on the Semantic Grid website.
+  <http://semantic.gs/examples/fixed/fixed.html>"
   [request]
   (ring-resp/response
     (page/html5
      [:head
       [:style (garden/css grid/fixed)]]
-     [:body
-      (grid/center
-       (grid/top [:h1 "The Semantic Grid System"])
-       (grid/main [:h2 "Main"])
-       (grid/sidebar [:h2 "Sidebar"]))])))
+     (grid/center
+      (grid/top [:h1 "The Semantic Grid System"])
+      (grid/main [:h2 "Main"])
+      (grid/sidebar [:h2 "Sidebar"])))))
 
 ;;;
 ;;; Method 1) Literal HTML with some Clojure string interpolation
@@ -118,14 +115,15 @@
 (defnk head
   "Defines a hypertext document head with some defaults."
   [{title "Home | Template Server"}
-   {extern "/assets/css/main"}
+   {styles "/assets/css/main"} ;<-- not physically hosted
    {keywords ["pedestal" "clojure" "web" "framework" "reactive" "messaging" "clojurescript" "clj" "cljs"]}
-   {description "Pedestal is a revolutionary framework for building next-gen internet application."}]
+   {description "Pedestal is a revolutionary framework for building next-gen internet applications."}]
    [:head
     [:title title]
-    (page/include-css extern)
+    [:meta {:http-equiv "content-type" :content "text/html;charset=utf-8"}]
     [:meta {:name "keywords" :content (string/join keywords)}]
-    [:meta {:name "description" :content description}]])
+    [:meta {:name "description" :content description}]
+    (page/include-css styles) ])
 
 (defnk body
   "Defines a default hypertext document body element with some sample default values."
@@ -140,8 +138,9 @@
   (ring-resp/response (page/html5 head body)))
 
 (def graph-htdoc
-  "The Graph"
+  "The graph itself, minimal setup."
   {:head head
+   :meta (fnk [head] head)
    :body body
    :response htdoc})
 
@@ -151,8 +150,9 @@
 
 (defn hiccup-page
   "The /hiccup page is using hiccup DSL piped through a simple graph, and generate
-  literal string with parsed HTML as body of a reponse map.
-  https://github.com/weavejester/hiccup & prismatic/plumbing"
+  a string literal containing the parsed HTML as body of a reponse map.
+  <https://github.com/weavejester/hiccup>
+  <https://github.com/prismatic/plumbing>"
   [request]
   (->> (into {} (htdoc-eager {:title "Hiccup with Plumbing Graph"}))
        :response))
