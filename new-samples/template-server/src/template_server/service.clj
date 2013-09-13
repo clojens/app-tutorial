@@ -1,5 +1,4 @@
 (ns template-server.service
-  (:refer-clojure :exclude [+ - * /])
   (:require [clojure.string :as string]
             [io.pedestal.service.http.route.definition :refer [defroutes]]
             [io.pedestal.service.http.body-params :as content-type]
@@ -18,12 +17,13 @@
             [clojure.string :as str]
             [hiccup.page :as page]
             [hiccup.def :refer [defelem]]
-            [template-server.grid :as grid]))
+            [template-server.grid :as grid]
+            [markdown.core :as markdown]))
 
-;; Convenient names given context
+;; Convenient names
 (def markup list)
 (def styles list)
-
+(def md->html markdown/md-to-html-string)
 (def normalize (comp #(apply str %) string/capitalize #(string/replace % #"/" "")))
 (def not-empty? (comp empty?))
 
@@ -43,8 +43,6 @@
 (defrule active-links :a:active)
 ;; These form pretty solid building blocks for further integration into
 ;; pedestal components. Everything we need is here (discussion in motivation.md)
-
-
 
 ;; We just bundle styles together in a normal function here, nothing fancy.
 ;; Could easily become a multimethod/dispatch for several themes/styles on ad-hoc basis.
@@ -91,13 +89,11 @@
   (ring-resp/response
    (format "<html>
            <head><title>Pedestal Template Server</title>
-           <!-- Note: this stylesheet is *not* a physical file but will still work since the route and handler
-           are hooked up -->
            <link rel='stylesheet' type='text/css' href='/assets/css/main' media='all'>
            <body>%s<br/>%s</body></html>"
            "Each of the links below is rendered by a different templating library. Check them out:"
            (str "<ul>"
-                (->> ["hiccup" "enlive" "mustache" "stringtemplate" "comb" "semantic-grid/fixed"]
+                (->> ["hiccup" "enlive" "mustache" "stringtemplate" "comb" "semantic-grid/fixed" "markdown"]
                      (map #(format "<li><a href='/%s'>%s</a></li>" % %))
                      (str/join ""))
                 "</ul>"))))
@@ -216,6 +212,39 @@
 
 
 ;;;
+;;; Method 7) Use Clojure Markdown together with hiccup as article templates
+;;;
+
+(defn markdown-page
+  "This example uses a string of Markdown that is first transformed to HTML,
+  then sent as response. Note that it is sensitive for indents that is why
+  it is done in such a particular manner here that the position is on the first
+  or second column in the string, anything above 4 will trigger the markdown
+  <pre> blocks. It's better of course to just use Markdown files and load these
+  using markdown/md-to-html"
+  []
+  (ring-resp/response
+    (page/html5 [:head
+                 [:title "Markdown Templates"]]
+                [:body
+                 [:section
+                  [:article
+(md->html "
+# Hello beautiful world!
+
+## A small essay on the wonderous world of Clojure
+
+### By [the intern](http://example.com)
+
+*Please note this is a sample, expand as you see fit*
+
+~~feed the dog~~
+
+**done**
+")]]])))
+
+
+;;;
 ;;; Routing and service map
 ;;;
 
@@ -227,7 +256,9 @@
      ["/enlive"  {:get enlive-page}]
      ["/mustache"  {:get mustache-page}]
      ["/stringtemplate"  {:get stringtemplate-page}]
-     ["/comb" {:get comb-page}]]]])
+     ["/comb" {:get comb-page}]
+     ["/markdown" {:get markdown-page}]
+     ]]])
 
 ;; Consumed by template-server.server/create-server
 (def service {:env :prod

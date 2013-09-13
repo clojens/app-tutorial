@@ -1,4 +1,9 @@
 
+
+
+
+
+
 I wrote the little theoretical essay below to explore my thoughts on how dynamic (Clojure)
 CSS (garden) could still be useful in a dynamic way and would fall into the framework of Pedestal.
 
@@ -155,8 +160,4 @@ With that in place, you could do the whole round trip, with or without a service
 the templates, the messages could do that and you'd have a generic template-service in the
 air to listen and respond to MESSAGES, instead of raw code like I did here. The CSS sheet is,
 after all, just another tree we can play around with freely.
-
-
-
-
 
