@@ -6,7 +6,8 @@
   * <https://github.com/twigkit/semantic.gs/blob/master/stylesheets/scss/grid.scss>"
 
   (:refer-clojure :exclude [+ - * /])
-  (:require [garden.units :refer [px em percent]]
+  (:require [garden.core :refer [css]]
+            [garden.units :refer [px em percent]]
             [garden.color :refer [hsl]]
             [garden.arithmetic :refer [+ - * /]]
             [garden.def :refer [defrule]]))
@@ -153,7 +154,8 @@
 ;;;
 
 ;TODO all others
-(def fixed
+(defn fixed
+  []
   ;; Create a standard grid and bind the key values.
   (let [{:keys [row column push pull]} (create-grid)]
     (styles

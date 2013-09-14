@@ -22,6 +22,7 @@
                  [io.pedestal/pedestal.jetty "0.2.1"]
                  ;; [io.pedestal/pedestal.tomcat "0.2.1"]
                  [prismatic/plumbing "0.1.0"]
+                 [swiss-arrows "0.6.0"]
                  [markdown-clj "0.9.31"]
                  [garden "1.0.0-SNAPSHOT"]
                  [hiccup "1.0.4"]

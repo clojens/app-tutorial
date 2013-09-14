@@ -20,6 +20,11 @@
             [template-server.grid :as grid]
             [markdown.core :as markdown]))
 
+;; (require '[cljs.repl :as repl])
+;; (require '[cljs.repl.rhino :as rhino])
+;; (def env (rhino/repl-env))
+;; (repl/repl env)
+
 ;; Convenient names
 (def markup list)
 (def styles list)
@@ -69,14 +74,22 @@
   Compare with the demo on the Semantic Grid website.
   <http://semantic.gs/examples/fixed/fixed.html>"
   [request]
+  (let [gtype (->> request :params :type)]
   (ring-resp/response
     (page/html5
      [:head
-      [:style (garden/css grid/fixed)]]
-     (grid/center
-      (grid/top [:h1 "The Semantic Grid System"])
+      [:title (str "Demo " gtype)]
+      ;; Instead of parsing the CSS string to be served up as a ring response
+      ;; and referenced through `include-css`, we use a internal stylesheet here.
+      ;; This saves us 1 HTTP GET request. This CSS is just as reusable as external
+      ;; style sheets (since we have Clojure to weave it all together) and could
+      ;; easily parse anything to file should other (non-Clojurans) need the styles.
+      [:style (garden/css (grid/fixed))]]
+     (grid/center ; body is wrapped inside (so not seen here, its in grid.clj)
+      ;; use some string interpolation to get part of the request params
+      (grid/top [:h1 (str "The Semantic Grid System (" gtype " example)")])
       (grid/main [:h2 "Main"])
-      (grid/sidebar [:h2 "Sidebar"])))))
+      (grid/sidebar [:h2 "Sidebar"]))))))
 
 ;;;
 ;;; Method 1) Literal HTML with some Clojure string interpolation
@@ -93,7 +106,7 @@
            <body>%s<br/>%s</body></html>"
            "Each of the links below is rendered by a different templating library. Check them out:"
            (str "<ul>"
-                (->> ["hiccup" "enlive" "mustache" "stringtemplate" "comb" "semantic-grid/fixed" "markdown"]
+                (->> ["hiccup" "enlive" "mustache" "stringtemplate" "comb" "grid?type=fixed" "markdown"]
                      (map #(format "<li><a href='/%s'>%s</a></li>" % %))
                      (str/join ""))
                 "</ul>"))))
@@ -229,19 +242,24 @@
                 [:body
                  [:section
                   [:article
-(md->html "
-# Hello beautiful world!
+                   (md->html )""]]])))
 
-## A small essay on the wonderous world of Clojure
+(def markdown-string
+  "
+  # Hello beautiful world!
 
-### By [the intern](http://example.com)
+  ## A small essay on the wonderous world of Clojure
 
-*Please note this is a sample, expand as you see fit*
+  ### By [the intern](http://example.com)
 
-~~feed the dog~~
+  *Please note this is a sample, expand as you see fit*
 
-**done**
-")]]])))
+  ~~feed the dog~~
+
+  **done**
+
+  a^2 + b^2 = c^2
+  ")
 
 
 ;;;
@@ -251,7 +269,7 @@
 (defroutes routes
   [[["/" {:get home-page} ^:interceptors [bootstrap/html-body]
      ["/assets/css/main" {:get style-sheet}]
-     ["/semantic-grid/fixed" {:get semantic-grid}]
+     ["/grid" {:get semantic-grid}]
      ["/hiccup" {:get hiccup-page}]
      ["/enlive"  {:get enlive-page}]
      ["/mustache"  {:get mustache-page}]
