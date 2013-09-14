@@ -20,11 +20,6 @@
             [template-server.grid :as grid]
             [markdown.core :as markdown]))
 
-;; (require '[cljs.repl :as repl])
-;; (require '[cljs.repl.rhino :as rhino])
-;; (def env (rhino/repl-env))
-;; (repl/repl env)
-
 ;; Convenient names
 (def markup list)
 (def styles list)
@@ -39,6 +34,7 @@
 
 ;; Although not required per se, these `defrule` make for more readable code.
 ;; Also I feel it suites to have essential abstractions/building blocks in plain sight.
+
 (defrule page-body :body)
 (defrule headings :h1 :h2 :h3)
 (defrule sub-headings :h4 :h5 :h6)
@@ -46,6 +42,7 @@
 (defrule links :a:link)
 (defrule visited-links :a:visited)
 (defrule active-links :a:active)
+
 ;; These form pretty solid building blocks for further integration into
 ;; pedestal components. Everything we need is here (discussion in motivation.md)
 
@@ -70,34 +67,37 @@
 
 
 (defn semantic-grid
-  "Demo page of the semantic grid system using garden.
-  Compare with the demo on the Semantic Grid website.
-  <http://semantic.gs/examples/fixed/fixed.html>"
+  "Demo page of the semantic grid system using garden, compare with the demo on
+  the Semantic Grid website. <http://semantic.gs/examples/fixed/fixed.html>"
   [request]
-  (let [gtype (->> request :params :type)]
+  (let [layout (->> request :params :type)]
   (ring-resp/response
     (page/html5
      [:head
-      [:title (str "Demo " gtype)]
+      ;; Use some string interpolation to get part of the request params.
+      [:title (str "Demo " layout)]
       ;; Instead of parsing the CSS string to be served up as a ring response
       ;; and referenced through `include-css`, we use a internal stylesheet here.
       ;; This saves us 1 HTTP GET request. This CSS is just as reusable as external
       ;; style sheets (since we have Clojure to weave it all together) and could
       ;; easily parse anything to file should other (non-Clojurans) need the styles.
-      [:style (garden/css (grid/fixed))]]
-     (grid/center ; body is wrapped inside (so not seen here, its in grid.clj)
-      ;; use some string interpolation to get part of the request params
-      (grid/top [:h1 (str "The Semantic Grid System (" gtype " example)")])
-      (grid/main [:h2 "Main"])
-      (grid/sidebar [:h2 "Sidebar"]))))))
+      [:style (garden/css (->> {} grid/grid-eager :grid-layout))]] ;</head>
+
+     [:body
+      (grid/center
+
+       (grid/top [:h1 (str "The Semantic Grid System (" layout " example)")])
+
+       (grid/main [:h2 "Main"])
+
+       (grid/sidebar [:h2 "Sidebar"]))]))))
 
 ;;;
 ;;; Method 1) Literal HTML with some Clojure string interpolation
 ;;;
 
 (defn home-page
-  "Returns a body of hypertext markup language as string value.
-  Uses some Clojure for 'dynamic' population of a list."
+  "Returns a body of hypertext markup language as string value as ring response map."
   [request]
   (ring-resp/response
    (format "<html>
