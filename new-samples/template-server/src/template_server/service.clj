@@ -35,7 +35,7 @@
             [comb.template :as comb]
             [plumbing.graph :as graph]
             [plumbing.core :refer [defnk fnk]]
-            [garden.core :as garden]
+            [garden.core :refer [css]]
             [garden.units :as gu :refer [px em]]
             [garden.def :refer [defrule]]
             [hiccup.page :as page]
@@ -98,12 +98,9 @@
   "Ring handler which responds by returning parsed CSS rules.
   This would constitute the use of a concept known as server-side CSS."
   [request]
-  ;;:expanded, :compact, or :compressed
-  (let [os (keyword (get-in request [:path-params :output]))]
     (-> (ring-resp/response
-         (garden/css {:output-style :expanded} (demo-style))) ; this works
-         ;(garden/css {:output-style os} (demo-style))) ; this doesn't work
-        (ring-resp/content-type "text/css"))))
+         (garden/css {:output-layout :expanded} (demo-style)))
+        (ring-resp/content-type "text/css")))
 
 (defn semantic-grid
   "Demo page of the semantic grid system using garden, compare with the demo on
@@ -140,11 +137,12 @@
   (ring-resp/response
    (format "<html>
            <head><title>Pedestal Template Server</title>
-           <link rel='stylesheet' type='text/css' href='/assets/css/main/compact' media='all'>
+           <link rel='stylesheet' type='text/css' href='/assets/styles/main.css' media='all'>
            <body>%s<br/>%s</body></html>"
            "Each of the links below is rendered by a different templating library. Check them out:"
            (str "<ul>"
-                (->> ["hiccup" "enlive" "mustache" "stringtemplate" "comb" "grid?type=fixed" "markdown" "assets/css/main/expanded"]
+                (->> ["hiccup" "enlive" "mustache" "stringtemplate" "comb" "grid?type=fixed"
+                      "markdown" "assets/styles/main.css"]
                      (map #(format "<li><a href='/%s'>%s</a></li>" % %))
                      (string/join ""))
                 "</ul>"))))
@@ -157,7 +155,7 @@
 (defnk head
   "Defines a hypertext document head with some defaults."
   [{title "Home | Template Server"}
-   {styles "/assets/css/main/compact"}
+   {styles "/assets/styles/main.css"}
    {keywords ["pedestal" "clojure" "web" "framework" "reactive"
               "messaging" "clojurescript" "clj" "cljs" "templates" "samples"]}
    {description "Pedestal is a revolutionary framework for building next-gen
@@ -327,8 +325,9 @@ a^2 + b^2 = c^2
 ;; a service map that can be consumed by template-server.server/create-server
 
 (defroutes routes
-  [[["/" {:get home-page} ^:interceptors [bootstrap/html-body]
-     ["/assets/css/main/:output" {:get style-sheet}]
+  [[["/" {:get home-page}
+     ^:interceptors [bootstrap/html-body]
+     ["/assets/styles/main.css" {:get style-sheet}]
      ["/grid" {:get semantic-grid}]
      ["/hiccup" {:get hiccup-page}]
      ["/enlive"  {:get enlive-page}]

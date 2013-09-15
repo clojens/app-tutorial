@@ -1,10 +1,8 @@
 (ns
   ^{:doc "Demonstration using Garden to recreate the Semantic Grid framework."
-    :authors "Joel Holbrook Rob Jentzema"
     :references "
     * <https://github.com/noprompt/garden>
-    * <http://semantic.gs/>
-    * <https://github.com/twigkit/semantic.gs/blob/master/stylesheets/scss/grid.scss>"}
+    * <http://semantic.gs/>"}
 
   template-server.grid
 
@@ -37,9 +35,7 @@
    ["&:before" "&:after" {:content "\"\"" :display "table"}]
    ["&:after" {:clear "both"}]])
 
-;; --------------
 ;; Plumbing Graph
-;; --------------
 ;;
 ;; A different destructuring syntax than 'fn' and 'defn', which automatically
 ;; infer input and output schemata. For more information see the README at:
