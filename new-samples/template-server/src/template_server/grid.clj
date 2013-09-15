@@ -1,10 +1,12 @@
-(ns template-server.grid
-  "Demonstration using Garden to recreate the Semantic Grid framework.
-  Thanks to Joel Holbrook (noprompt) for the work on writing this up.
+(ns
+  ^{:doc "Demonstration using Garden to recreate the Semantic Grid framework."
+    :authors "Joel Holbrook Rob Jentzema"
+    :references "
+    * <https://github.com/noprompt/garden>
+    * <http://semantic.gs/>
+    * <https://github.com/twigkit/semantic.gs/blob/master/stylesheets/scss/grid.scss>"}
 
-  * <https://github.com/noprompt/garden>
-  * <http://semantic.gs/>
-  * <https://github.com/twigkit/semantic.gs/blob/master/stylesheets/scss/grid.scss>"
+  template-server.grid
 
   (:refer-clojure :exclude [+ - * /])
   (:require [garden.core :refer [css]]
@@ -14,6 +16,7 @@
             [garden.def :refer [defrule]]
             [plumbing.graph :as graph]
             [plumbing.core :refer [defnk fnk]]))
+
 
 ;; Alias `styles` (like in hiccup, garden adjacent siblings
 ;; should be wrapped in a list to ensure proper parsing)
@@ -56,10 +59,9 @@
    :columns      (fnk [{grid-columns 12}] grid-columns)
    :column-width (fnk [{grid-column-width (px 60)}] grid-column-width)
    :gutter-width (fnk [{grid-gutter-width (px 20)}] grid-gutter-width)
-   :total-width  (fnk [{grid-total-width  (px 960)}] grid-total-width)
+   :total-width  (fnk [{grid-total-width  (px 1024)}] grid-total-width)
 
-   ;:|m| (fnk [>>>] {:>>> >>>})
-
+   ;; calculate the actual width
    :grid-width (fnk [column-width gutter-width columns]
                     (+ (* column-width columns)
                        (* gutter-width columns)))
@@ -75,6 +77,10 @@
                                (/ (* 0.5 gutter-width)
                                   grid-width)))))
 
+
+   ;; This solution is more elegant as it doesn't force us to choose between
+   ;; defaults or required and end up with the cleanest functions possible we
+   ;; can tailor make for our grid e.g. (column 10) or (pull 2).
    :create-grid (fnk [columns column-width gutter-width
                       {total-width (or total-width grid-width)}
                       grid-width offset-fn]
@@ -113,7 +119,10 @@
    ;; Not sure about this one, guess it doesn't hurt and keeps everything nicely
    ;; packed together without having to destructure elsewhere but inside the grid itself
    ;; the custom made functions column, row, push and pull which depend on your input.
-   :grid-layout (fnk [{layout 'fixed} create-grid] ((resolve layout) create-grid))
+   ;; Fixed grid default.
+   ;:grid-layout (fnk [{layout 'fixed} create-grid] ((resolve layout) create-grid))
+
+   ;; Obviously, we would be able to compute all grid layouts in this graph.
 
 
    })
@@ -174,16 +183,6 @@
        :padding (px 20)}))))
 
 
-;; (into {} (grid-eager {:column-width (px 60) :columns 12 :gutter-width 0
-;;                       :amount 10 :total-width 900 :grid-width 1000}))
-;(css [:.foo ((:column-fn (grid-eager {:gw 60})) 2)])
-;; (:total-width (grid-eager {}))
-;; (let [{:keys [row column push pull]} (:create-grid (grid-eager {}))]
-;;   (row))
-
-;:options (fnk [{columns col} {cw column-width} {gw gutter-width} {tw total-width} :as opts] opts)
-   ;:foo (fnk [columns column-width :as t] {:t t})
-   ;:foo (fnk [a b c d :as e] e)
 
 ;; A few examples how you could easily put these to use:
 ;; (def example-a (into {} (grid-eager {})))

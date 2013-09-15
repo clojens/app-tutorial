@@ -1,24 +1,51 @@
-(ns template-server.service
+(ns
+
+  ^{:doc "Template polyglot sample offers example uses of: Hiccup and Enlive,
+    Markdown, StringTemplate (ST4), Comb (ERB/JSP-like) Clostache, Garden CSS,
+    Clostache and pure HTML strings sent as response maps (in a few cases through
+    computation of Pristmatic plumbing graph keyword functions) using Pedestal,
+    routing, over Ring to a Jetty server instance. All the 'web pages' generated
+    in this sample are directly usable and viewable by mere evaluation of the
+    (server/run-dev) expression in `server.clj`."
+
+    :author "Copyright 2013 Relevance, Inc."
+
+    :license "The use and distribution terms for this software are covered by the
+    Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0)
+    which can be found in the file epl-v10.html at the root of this distribution.
+
+    By using this software in any fashion, you are agreeing to be bound by
+    the terms of this license.
+
+    You must not remove this notice, or any other, from this software."}
+
+  template-server.service
+
   (:require [clojure.string :as string]
+            [clojure.java.io :as io]
             [io.pedestal.service.http.route.definition :refer [defroutes]]
             [io.pedestal.service.http.body-params :as content-type]
             [io.pedestal.service.http.route :as route]
             [io.pedestal.service.http :as bootstrap]
             [ring.util.response :as ring-resp]
             [net.cgrand.enlive-html :as html]
+            [template-server.grid :as grid]
             [clostache.parser :as mustache]
-            [clojure.java.io :as io]
+            [markdown.core :as markdown]
+            [comb.template :as comb]
             [plumbing.graph :as graph]
             [plumbing.core :refer [defnk fnk]]
             [garden.core :as garden]
-            [garden.def :refer [defrule]]
             [garden.units :as gu :refer [px em]]
-            [comb.template :as comb]
-            [clojure.string :as str]
+            [garden.def :refer [defrule]]
             [hiccup.page :as page]
-            [hiccup.def :refer [defelem]]
-            [template-server.grid :as grid]
-            [markdown.core :as markdown]))
+            [hiccup.def :refer [defelem]])
+  (:import [org.w3c.tidy Tidy]
+           [java.io StringReader StringWriter]))
+
+
+;[cfg.current :as cfg]
+
 
 ;; Convenient names
 (def markup list)
@@ -27,14 +54,26 @@
 (def normalize (comp #(apply str %) string/capitalize #(string/replace % #"/" "")))
 (def not-empty? (comp empty?))
 
+;; Tidy
+(defn jtidy []
+  (doto (new Tidy)
+    (.setDocType "html PUBLIC")
+    (.setXmlTags true)
+    (.setSmartIndent true)
+    (.setWraplen 120)))
+
+(defn format-html [html]
+  (let [w (StringWriter.)]
+    (.parse (jtidy) (StringReader. (str html)) w)
+    (str ;"<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">\n"
+         w)))
 
 ;;;
 ;;; Garden DSL ~> Cascading Style Sheets (CSS)
 ;;;
 
 ;; Although not required per se, these `defrule` make for more readable code.
-;; Also I feel it suites to have essential abstractions/building blocks in plain sight.
-
+;; Also having essential abstractions/building blocks in plain sight isn't bad.
 (defrule page-body :body)
 (defrule headings :h1 :h2 :h3)
 (defrule sub-headings :h4 :h5 :h6)
@@ -43,13 +82,10 @@
 (defrule visited-links :a:visited)
 (defrule active-links :a:active)
 
-;; These form pretty solid building blocks for further integration into
-;; pedestal components. Everything we need is here (discussion in motivation.md)
 
-;; We just bundle styles together in a normal function here, nothing fancy.
-;; Could easily become a multimethod/dispatch for several themes/styles on ad-hoc basis.
 (defn demo-style
-  "Wraps several style rules, allows for easier parsing of final result."
+  "Wraps several style rules, allows for easier parsing of final result. Reusable
+  blocks (e.g. for a theme) could be composed this way."
   []
   (styles
    (page-body {:font {:family "Verdana, Sans serif"}
@@ -58,39 +94,41 @@
    (links {:text-decoration :none :color :red}
     (on-hover {:text-decoration :underline :color :blue}))))
 
-;; style rules as response (no file)
 (defn style-sheet
-  "Ring handler which responds by returning parsed CSS rules."
+  "Ring handler which responds by returning parsed CSS rules.
+  This would constitute the use of a concept known as server-side CSS."
   [request]
-  (-> (ring-resp/response (garden/css (demo-style)))
-      (ring-resp/content-type "text/css")))
-
+  ;;:expanded, :compact, or :compressed
+  (let [os (keyword (get-in request [:path-params :output]))]
+    (-> (ring-resp/response
+         (garden/css {:output-style :expanded} (demo-style))) ; this works
+         ;(garden/css {:output-style os} (demo-style))) ; this doesn't work
+        (ring-resp/content-type "text/css"))))
 
 (defn semantic-grid
   "Demo page of the semantic grid system using garden, compare with the demo on
   the Semantic Grid website. <http://semantic.gs/examples/fixed/fixed.html>"
   [request]
   (let [layout (->> request :params :type)]
-  (ring-resp/response
-    (page/html5
-     [:head
-      ;; Use some string interpolation to get part of the request params.
-      [:title (str "Demo " layout)]
-      ;; Instead of parsing the CSS string to be served up as a ring response
-      ;; and referenced through `include-css`, we use a internal stylesheet here.
-      ;; This saves us 1 HTTP GET request. This CSS is just as reusable as external
-      ;; style sheets (since we have Clojure to weave it all together) and could
-      ;; easily parse anything to file should other (non-Clojurans) need the styles.
-      [:style (garden/css (->> {} grid/grid-eager :grid-layout))]] ;</head>
+    (ring-resp/response
+     (page/html5
+      [:head
+       ;; Use some string interpolation to get part of the request params.
+       [:title (format "Demo %s" layout)]
+       ;; Instead of parsing the CSS string to be served up as a ring response
+       ;; and referenced through `include-css`, we use a internal stylesheet here.
+       ;; This saves us 1 HTTP GET request on the client side. This CSS is just as
+       ;; reusable as external style sheets since we take the server-side approach
+       ;; here and have the power of Clojure at our hands. The cascading nature
+       ;; of CSS would give presedence over external ones, something to keep in mind.
+       [:style (garden/css (->> {} grid/grid-eager :grid-layout))]] ;</head>
 
-     [:body
-      (grid/center
+      [:body
+       (grid/center
+        (grid/top [:h1 (format "The Semantic Grid System (%s example)" layout)])
+        (grid/main [:h2 "Main"])
+        (grid/sidebar [:h2 "Sidebar"]))]))))
 
-       (grid/top [:h1 (str "The Semantic Grid System (" layout " example)")])
-
-       (grid/main [:h2 "Main"])
-
-       (grid/sidebar [:h2 "Sidebar"]))]))))
 
 ;;;
 ;;; Method 1) Literal HTML with some Clojure string interpolation
@@ -102,31 +140,35 @@
   (ring-resp/response
    (format "<html>
            <head><title>Pedestal Template Server</title>
-           <link rel='stylesheet' type='text/css' href='/assets/css/main' media='all'>
+           <link rel='stylesheet' type='text/css' href='/assets/css/main/compact' media='all'>
            <body>%s<br/>%s</body></html>"
            "Each of the links below is rendered by a different templating library. Check them out:"
            (str "<ul>"
-                (->> ["hiccup" "enlive" "mustache" "stringtemplate" "comb" "grid?type=fixed" "markdown"]
+                (->> ["hiccup" "enlive" "mustache" "stringtemplate" "comb" "grid?type=fixed" "markdown" "assets/css/main/expanded"]
                      (map #(format "<li><a href='/%s'>%s</a></li>" % %))
-                     (str/join ""))
+                     (string/join ""))
                 "</ul>"))))
 
 ;;;
-;;; Method 2) Hiccup HTML DSL forms with Prismatic Plumbing
+;;; Method 2) Hiccup [:html [:dsl "forms"]]
 ;;;
 
+;; We use prismatic plumbin to cleanly seperate the components.
 (defnk head
   "Defines a hypertext document head with some defaults."
   [{title "Home | Template Server"}
-   {styles "/assets/css/main"} ;<-- not physically hosted
-   {keywords ["pedestal" "clojure" "web" "framework" "reactive" "messaging" "clojurescript" "clj" "cljs"]}
-   {description "Pedestal is a revolutionary framework for building next-gen internet applications."}]
+   {styles "/assets/css/main/compact"}
+   {keywords ["pedestal" "clojure" "web" "framework" "reactive"
+              "messaging" "clojurescript" "clj" "cljs" "templates" "samples"]}
+   {description "Pedestal is a revolutionary framework for building next-gen
+    web applications built by Relevance using Clojure."}]
    [:head
     [:title title]
     [:meta {:http-equiv "content-type" :content "text/html;charset=utf-8"}]
-    [:meta {:name "keywords" :content (string/join keywords)}]
+    [:meta {:name "keywords" :content (string/join ", " keywords)}]
     [:meta {:name "description" :content description}]
-    (page/include-css styles) ])
+    (page/include-css styles) ; >= 1 HTTP GET call
+    ])
 
 (defnk body
   "Defines a default hypertext document body element with some sample default values."
@@ -141,27 +183,31 @@
   (ring-resp/response (page/html5 head body)))
 
 (def graph-htdoc
-  "The graph itself, minimal setup."
+  "The graph itself, minimal setup because we've expedited every node function to
+  the externally defined `defnk` function bodies however, the arguments are still
+  passed through properly thanks to our compiling of this graph."
   {:head head
    :meta (fnk [head] head)
    :body body
    :response htdoc})
 
 (def htdoc-eager
-  "Compilation strategy."
+  "Compilation strategy: compile everything eagerly, as opposed to parallel or lazily.
+  <https://github.com/prismatic/plumbing>"
   (graph/eager-compile graph-htdoc))
 
 (defn hiccup-page
   "The /hiccup page is using hiccup DSL piped through a simple graph, and generate
   a string literal containing the parsed HTML as body of a reponse map.
-  <https://github.com/weavejester/hiccup>
-  <https://github.com/prismatic/plumbing>"
+  <https://github.com/weavejester/hiccup>"
   [request]
+  ;; Since none of the nodes require arguments explicitely, we're safe to construct it
+  ;; without providing any arguments ourselves (although possible, see below).
   (->> (into {} (htdoc-eager {:title "Hiccup with Plumbing Graph"}))
        :response))
 
 ;;;
-;;; Method 3) Enlive templates
+;;; Method 3) [:#enlive-templates]
 ;;;
 
 (html/deftemplate enlive-template
@@ -185,8 +231,8 @@
 ;;;
 
 (defn mustache-page
-  "The /mustache page is done in (what else?) mustache.
-  source+doc: https://github.com/fhd/clostache"
+  "The /mustache page is done in (what else?) mustache, known for
+  its {{handlebars}} notation. <https://github.com/fhd/clostache>"
   [request]
   (ring-resp/response
    (mustache/render-resource "public/mustache-template.html"
@@ -195,7 +241,7 @@
                               :date (str (java.util.Date.))})))
 
 ;;;
-;;; Method 5) $StringTemplate$ (ST4)
+;;; Method 5) String$Template (ST4)
 ;;;
 
 (def template-string
@@ -213,7 +259,7 @@
                        (.render)))))
 
 ;;;
-;;; Method 6) Comb templates a la <%= erb %>
+;;; Method 6) Comb <%= templates %>
 ;;;
 
 (defn comb-page
@@ -228,47 +274,61 @@
 ;;; Method 7) Use Clojure Markdown together with hiccup as article templates
 ;;;
 
+(def main-content
+"# Hello beautiful world!
+
+## A small essay on the wonderous world of Clojure
+
+#### By [the intern](http://example.com)
+
+Welcome friend.
+
+*Please note this is a sample, expand as you see fit*
+
+~~feed the dog~~
+
+    Hello
+
+**done**
+
+a^2 + b^2 = c^2
+")
+
+
 (defn markdown-page
-  "This example uses a string of Markdown that is first transformed to HTML,
-  then sent as response. Note that it is sensitive for indents that is why
-  it is done in such a particular manner here that the position is on the first
-  or second column in the string, anything above 4 will trigger the markdown
-  <pre> blocks. It's better of course to just use Markdown files and load these
-  using markdown/md-to-html"
-  []
+  "Here we use Markdown to illustrate a common web development paradigm often
+  found in the wild, in boilerplates, templates, MVC frameworks and such: the
+  clear seperation of content from structure (earlier we took out style from
+  structure and content). This is a Utopia, more so for practical reasons:
+  the # and ## in the Markdown are strictly structural, outline components.
+  A true seperation of content from structure may be more easily achieved
+  by something like in the clostache example by sending the data object along
+  that would carry the content."
+  [request]
   (ring-resp/response
-    (page/html5 [:head
-                 [:title "Markdown Templates"]]
-                [:body
-                 [:section
-                  [:article
-                   (md->html )""]]])))
+   ;; Make this sample feel special by having pretty-printed output.
+   (format-html
+    (page/html5
+     [:head
+      [:title "Markdown Templates"]]
+     [:body
+      [:section
+       [:article
+        ;; Make this example feel special, pretty print the HTML
+        (md->html main-content)]]]))))
 
-(def markdown-string
-  "
-  # Hello beautiful world!
-
-  ## A small essay on the wonderous world of Clojure
-
-  ### By [the intern](http://example.com)
-
-  *Please note this is a sample, expand as you see fit*
-
-  ~~feed the dog~~
-
-  **done**
-
-  a^2 + b^2 = c^2
-  ")
-
+;(println (->> {} markdown-page :body))
 
 ;;;
 ;;; Routing and service map
 ;;;
 
+;; Final things to do is to manually setup the routes and then to define
+;; a service map that can be consumed by template-server.server/create-server
+
 (defroutes routes
   [[["/" {:get home-page} ^:interceptors [bootstrap/html-body]
-     ["/assets/css/main" {:get style-sheet}]
+     ["/assets/css/main/:output" {:get style-sheet}]
      ["/grid" {:get semantic-grid}]
      ["/hiccup" {:get hiccup-page}]
      ["/enlive"  {:get enlive-page}]
@@ -278,9 +338,9 @@
      ["/markdown" {:get markdown-page}]
      ]]])
 
-;; Consumed by template-server.server/create-server
 (def service {:env :prod
               ::bootstrap/routes routes
+              ;; Hosted/shared files under ./resources/public/ as doc root
               ::bootstrap/resource-path "/public"
               ::bootstrap/type :jetty
               ::bootstrap/port 8080})

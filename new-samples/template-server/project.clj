@@ -13,6 +13,7 @@
   :description "Demonstrates Pedestal page rendering via different template libraries."
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :plugins [[slothcfg "1.0.1"]]
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [io.pedestal/pedestal.service "0.2.1"]
                  [io.pedestal/pedestal.service-tools "0.2.1"]
@@ -21,15 +22,16 @@
                  ;; use Tomcat instead of Jetty:
                  [io.pedestal/pedestal.jetty "0.2.1"]
                  ;; [io.pedestal/pedestal.tomcat "0.2.1"]
+                 [de.ubercode.clostache/clostache "1.3.1"]
+                 [org.antlr/stringtemplate "4.0.2"]
                  [prismatic/plumbing "0.1.0"]
+                 [net.sf.jtidy/jtidy "r938"]
                  [swiss-arrows "0.6.0"]
                  [markdown-clj "0.9.31"]
                  [garden "1.0.0-SNAPSHOT"]
                  [hiccup "1.0.4"]
                  [enlive "1.1.4"]
-                 [comb "0.1.0"]
-                 [org.antlr/stringtemplate "4.0.2"]
-                 [de.ubercode.clostache/clostache "1.3.1"]]
+                 [comb "0.1.0"]]
   :min-lein-version "2.0.0"
   :resource-paths ["config", "resources", "resources/public"]
   :aliases {"run-dev" ["trampoline" "run" "-m" "template-server.server/run-dev"]}
