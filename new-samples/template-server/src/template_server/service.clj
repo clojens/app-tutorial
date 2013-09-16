@@ -39,40 +39,43 @@
             [garden.units :as gu :refer [px em]]
             [garden.def :refer [defrule]]
             [hiccup.page :as page]
-            [hiccup.def :refer [defelem]])
+            [hiccup.def :refer [defelem]]
+            [cfg.current :as cfg])
   (:import [org.w3c.tidy Tidy]
            [java.io StringReader StringWriter]))
 
-
-;[cfg.current :as cfg]
-
-
-;; Convenient names
+;; Convenience
 (def markup list)
 (def styles list)
 (def md->html markdown/md-to-html-string)
-(def normalize (comp #(apply str %) string/capitalize #(string/replace % #"/" "")))
+(def normalized (comp string/capitalize #(string/replace % #"-" " ")))
 (def not-empty? (comp empty?))
+(def project-name (normalized (:group @cfg/project)))
 
-;; Tidy
+;;;
+;;; JTIDY
+;;;
+
 (defn jtidy []
   (doto (new Tidy)
     (.setDocType "html PUBLIC")
-    (.setXmlTags true)
+    (.setShowWarnings true)
+    (.setTidyMark false)
+    ;(.setXmlTags true)
     (.setSmartIndent true)
     (.setWraplen 120)))
 
-(defn format-html [html]
+(defn format-html
+  [html]
   (let [w (StringWriter.)]
     (.parse (jtidy) (StringReader. (str html)) w)
-    (str ;"<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">\n"
-         w)))
+    (str w)))
 
 ;;;
-;;; Garden DSL ~> Cascading Style Sheets (CSS)
+;;; GARDEN
 ;;;
 
-;; Although not required per se, these `defrule` make for more readable code.
+;; Although not required per se, these `defrule` make for more readable styles.
 ;; Also having essential abstractions/building blocks in plain sight isn't bad.
 (defrule page-body :body)
 (defrule headings :h1 :h2 :h3)
@@ -81,18 +84,25 @@
 (defrule links :a:link)
 (defrule visited-links :a:visited)
 (defrule active-links :a:active)
-
+(defrule unordered-list :ul)
 
 (defn demo-style
   "Wraps several style rules, allows for easier parsing of final result. Reusable
   blocks (e.g. for a theme) could be composed this way."
   []
   (styles
-   (page-body {:font {:family "Verdana, Sans serif"}
+   (page-body {:font {:family "'Latin Modern Roman', Georgia, 'Times New Roman', Times, serif"}
                :background "#f7f7f7 url(/images/noise.png)"})
    (headings {:font {:size (px 20)}})
-   (links {:text-decoration :none :color :red}
-    (on-hover {:text-decoration :underline :color :blue}))))
+   (unordered-list {:list-style :none})
+   (links {:text-decoration :none
+           :color "#2ba6cb"
+           :line-height (em 2.5)
+           :margin (px 5) :padding (px 10)}
+    (on-hover {:text-decoration :none
+               :color :white
+               :background "#2ba6cb"
+               :border-radius (px 5)}))))
 
 (defn style-sheet
   "Ring handler which responds by returning parsed CSS rules.
@@ -128,38 +138,49 @@
 
 
 ;;;
-;;; Method 1) Literal HTML with some Clojure string interpolation
+;;; LITERAL HTML W/ STRING INTERPOLATION
 ;;;
+
+(def html-page
+  (format "<html>
+          <head><title>Pedestal Template Server</title>
+          <link rel='stylesheet' type='text/css' href='/assets/styles/main.css' media='all'>
+          <body>%s<br/>%s</body></html>"
+
+          "Each of the links below is rendered by a different templating library.
+          <p>Check them out below:</p>"
+
+          (str "<ul>"
+               (->> ["hiccup" "enlive" "mustache" "stringtemplate" "comb" "grid?type=fixed"
+                     "markdown" "assets/styles/main.css"]
+                    (map #(format "<li><a href='/%s'>%s</a></li>" % %))
+                    (string/join "")) "</ul>")))
 
 (defn home-page
   "Returns a body of hypertext markup language as string value as ring response map."
   [request]
-  (ring-resp/response
-   (format "<html>
-           <head><title>Pedestal Template Server</title>
-           <link rel='stylesheet' type='text/css' href='/assets/styles/main.css' media='all'>
-           <body>%s<br/>%s</body></html>"
-           "Each of the links below is rendered by a different templating library. Check them out:"
-           (str "<ul>"
-                (->> ["hiccup" "enlive" "mustache" "stringtemplate" "comb" "grid?type=fixed"
-                      "markdown" "assets/styles/main.css"]
-                     (map #(format "<li><a href='/%s'>%s</a></li>" % %))
-                     (string/join ""))
-                "</ul>"))))
+  ;; JTidy cleans and pretty-prints the HTML, use e.g. `curl localhost:8080`
+  ;; at your virtual terminal to view the raw source.
+  (ring-resp/response (format-html html-page)))
 
 ;;;
-;;; Method 2) Hiccup [:html [:dsl "forms"]]
+;;; HICCUP
 ;;;
 
-;; We use prismatic plumbin to cleanly seperate the components.
+;; We use prismatic plumbing to succinctly define components of hiccup vectors
+;; using sane defaults which can be modified at will. The DSL is piped through
+;; a simple graph, resulting in HTML sent as a Ring response.
+;; <https://github.com/weavejester/hiccup>
+
+;; Define a hypertext document head, body and finally document with a few nested
+;; structural elements (markup) and attributes.
+
 (defnk head
-  "Defines a hypertext document head with some defaults."
-  [{title "Home | Template Server"}
+  [{title (str "Home | " project-name)}
    {styles "/assets/styles/main.css"}
    {keywords ["pedestal" "clojure" "web" "framework" "reactive"
               "messaging" "clojurescript" "clj" "cljs" "templates" "samples"]}
-   {description "Pedestal is a revolutionary framework for building next-gen
-    web applications built by Relevance using Clojure."}]
+   {description "Describe your website."}]
    [:head
     [:title title]
     [:meta {:http-equiv "content-type" :content "text/html;charset=utf-8"}]
@@ -169,43 +190,34 @@
     ])
 
 (defnk body
-  "Defines a default hypertext document body element with some sample default values."
   [{heading "This is the template page for hiccup."}
    {content "Check out the source code for some more remarks"}]
   [:body [:section (markup [:h1 heading]
                            [:article content])]])
 
 (defnk htdoc
-  "Generic hypertext document. Takes head & body, returns a Ring response map."
+  "Generic hypertext document as ring response body compiled from hiccup."
   [head body]
   (ring-resp/response (page/html5 head body)))
 
 (def graph-htdoc
-  "The graph itself, minimal setup because we've expedited every node function to
-  the externally defined `defnk` function bodies however, the arguments are still
-  passed through properly thanks to our compiling of this graph."
-  {:head head
-   :meta (fnk [head] head)
-   :body body
-   :response htdoc})
+  "Define the plumbing graph which we'll pipe the forms through and compute
+  the final document result from defnks. <https://github.com/prismatic/plumbing>"
+  {:head head :body body :response htdoc})
 
 (def htdoc-eager
-  "Compilation strategy: compile everything eagerly, as opposed to parallel or lazily.
-  <https://github.com/prismatic/plumbing>"
+  "Compilation strategy: compile everything eagerly, as opposed to parallel or lazily."
   (graph/eager-compile graph-htdoc))
 
+;; Since we had `htdoc` compute the response map, we don't need it here.
 (defn hiccup-page
-  "The /hiccup page is using hiccup DSL piped through a simple graph, and generate
-  a string literal containing the parsed HTML as body of a reponse map.
-  <https://github.com/weavejester/hiccup>"
   [request]
-  ;; Since none of the nodes require arguments explicitely, we're safe to construct it
-  ;; without providing any arguments ourselves (although possible, see below).
-  (->> (into {} (htdoc-eager {:title "Hiccup with Plumbing Graph"}))
-       :response))
+  (->> {:description "Pedestal is a revolutionary framework for building
+        next-gen web applications built by Relevance using Clojure."}
+       htdoc-eager :response))
 
 ;;;
-;;; Method 3) [:#enlive-templates]
+;;; ENLIVE
 ;;;
 
 (html/deftemplate enlive-template
@@ -217,7 +229,7 @@
 
 (defn enlive-page
   "The /enlive page is done with enlive, plugging in values for title and text.
-  source+doc: https://github.com/cgrand/enlive"
+  <https://github.com/cgrand/enlive>"
   [request]
   (ring-resp/response
    (apply str (enlive-template {:title "Enlive Demo Page"
@@ -225,7 +237,7 @@
                                 :date (str (java.util.Date.))}))))
 
 ;;;
-;;; Method 4) {{Mustache}}
+;;; MUSTACHE
 ;;;
 
 (defn mustache-page
@@ -239,8 +251,13 @@
                               :date (str (java.util.Date.))})))
 
 ;;;
-;;; Method 5) String$Template (ST4)
+;;; STRINGTEMPLATE
 ;;;
+
+;; StringTemplate is a java template engine for generating source code,
+;; web pages, emails, or any other formatted text output. StringTemplate
+;; is particularly good at code generators, multiple site skins, and
+;; internationalization / localization. StringTemplate also powers ANTLR.
 
 (def template-string
   "<html>
@@ -257,55 +274,34 @@
                        (.render)))))
 
 ;;;
-;;; Method 6) Comb <%= templates %>
+;;; COMB
 ;;;
 
+;; Comb is a simple templating system for Clojure. Usable to embed fragments of
+;; Clojure code into text files. The <% %> tags embed a section of code with
+;; side-effects while the <%= %> tags will be subsituted for the value of
+;; the expression within them.
+;; <https://github.com/weavejester/comb>
+
 (defn comb-page
-  "The /comb page is done with the very ERB/JSP-like comb
-  templating package. See https://github.com/weavejester/comb"
   [request]
   (ring-resp/response
    (comb/eval (slurp (io/resource "public/comb.html")) {:name "erb"})))
 
 
+;;; MARKDOWN
 ;;;
-;;; Method 7) Use Clojure Markdown together with hiccup as article templates
-;;;
-
-(def main-content
-"# Hello beautiful world!
-
-## A small essay on the wonderous world of Clojure
-
-#### By [the intern](http://example.com)
-
-Welcome friend.
-
-*Please note this is a sample, expand as you see fit*
-
-~~feed the dog~~
-
-    Hello
-
-**done**
-
-a^2 + b^2 = c^2
-")
-
 
 (defn markdown-page
-  "Here we use Markdown to illustrate a common web development paradigm often
-  found in the wild, in boilerplates, templates, MVC frameworks and such: the
-  clear seperation of content from structure (earlier we took out style from
-  structure and content). This is a Utopia, more so for practical reasons:
-  the # and ## in the Markdown are strictly structural, outline components.
-  A true seperation of content from structure may be more easily achieved
-  by something like in the clostache example by sending the data object along
-  that would carry the content."
+  "Use Markdown to illustrate a web development paradigm, the notion there
+  is a distinct difference between structural markup and what is normally
+  conceived as content, in this case the text for a article. True separation
+  is often not without a cost, much more painful than separating out the styles.
+  There are web sites who pull *all* content, sometimes even *all* markup as well,
+  from databases. However, a much cleaner solution is to allow at least some
+  structure to seep through, be it less obtrusive (markdown)."
   [request]
   (ring-resp/response
-   ;; Make this sample feel special by having pretty-printed output.
-   (format-html
     (page/html5
      [:head
       [:title "Markdown Templates"]]
@@ -313,13 +309,12 @@ a^2 + b^2 = c^2
       [:section
        [:article
         ;; Make this example feel special, pretty print the HTML
-        (md->html main-content)]]]))))
+        ;(md->html "# A very short article")
+        ;; Since clj-markdown doesn't have a function for file-in string-out
+        (md->html (slurp "./resources/public/markdown.md"))]]])))
 
-;(println (->> {} markdown-page :body))
 
-;;;
-;;; Routing and service map
-;;;
+;; Routing and service map
 
 ;; Final things to do is to manually setup the routes and then to define
 ;; a service map that can be consumed by template-server.server/create-server
